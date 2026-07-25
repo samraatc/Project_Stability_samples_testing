@@ -1,0 +1,38 @@
+{
+  "name": "enterprise-stability-management-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enterprise Stability Management System (ESMS) - pharmaceutical stability management platform",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "node -e \"if (process.env.CI !== 'true') { try { require('child_process').execSync('husky', { stdio: 'inherit' }) } catch (e) {} }\""
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

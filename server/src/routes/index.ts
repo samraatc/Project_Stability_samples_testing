@@ -1,0 +1,30 @@
+import { Router } from 'express';
+import { healthRouter } from '../modules/health/health.routes';
+import { authRouter } from '../modules/auth/auth.routes';
+import { usersRouter } from '../modules/users/user.routes';
+import { rolesRouter } from '../modules/roles/role.routes';
+import { auditRouter } from '../modules/audit/audit.routes';
+import { loginHistoryRouter } from '../modules/auth/login-history.routes';
+import { settingsRouter } from '../modules/settings/settings.routes';
+import { productsRouter } from '../modules/products/product.routes';
+import { sectionsRouter } from '../modules/sections/section.routes';
+import { batchesRouter } from '../modules/batches/batch.routes';
+import { samplesRouter } from '../modules/samples/sample.routes';
+import { backupsRouter } from '../modules/backups/backup.routes';
+import { categoriesRouter } from '../modules/categories/category.routes';
+
+export const apiV1Router = Router();
+
+apiV1Router.use('/health', healthRouter);
+apiV1Router.use('/auth', authRouter);
+apiV1Router.use('/users', usersRouter);
+apiV1Router.use('/roles', rolesRouter);
+apiV1Router.use('/audit-logs', auditRouter);
+apiV1Router.use('/login-history', loginHistoryRouter);
+apiV1Router.use('/settings', settingsRouter);
+apiV1Router.use('/products', productsRouter);
+apiV1Router.use('/sections', sectionsRouter);
+apiV1Router.use('/batches', batchesRouter);
+apiV1Router.use('/samples', samplesRouter);
+apiV1Router.use('/backups', backupsRouter);
+apiV1Router.use('/categories', categoriesRouter);
