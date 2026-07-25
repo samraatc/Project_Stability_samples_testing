@@ -11,9 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    
-    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production' && process.env.CI !== 'true') { try { require('child_process').execSync('husky', { stdio: 'inherit' }) } catch (e) {} }\""
-  },
+    "prepare": "node -e \"if (!process.env.CI && !process.env.VERCEL) { try { require('child_process').execSync('husky', { stdio: 'inherit' }) } catch (e) {} }\""  },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@tanstack/react-query": "^5.62.0",
