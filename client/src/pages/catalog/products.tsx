@@ -153,7 +153,7 @@ export function ProductsPage() {
               ['code', 'Product Code'],
               ['dosageForm', 'Dosage Form'],
               ['strength', 'Strength'],
-              ['storageConditions', 'Chamber Conditions'],
+              ['storageConditions', 'Storage Conditions'],
             ] as const
           ).map(([field, label]) => (
             <div key={field}>
@@ -168,10 +168,10 @@ export function ProductsPage() {
                   field,
                   field === 'code'
                     ? {
-                        onChange: (e) => {
-                          e.target.value = e.target.value.toUpperCase();
-                        },
-                      }
+                      onChange: (e) => {
+                        e.target.value = e.target.value.toUpperCase();
+                      },
+                    }
                     : undefined,
                 )}
               />
@@ -225,7 +225,7 @@ export function ProductsPage() {
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Dosage Form</th>
               <th className="px-4 py-3">Strength</th>
-              <th className="px-4 py-3">Chamber Conditions</th>
+              <th className="px-4 py-3">Storage Conditions</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -415,7 +415,7 @@ export function ProductsPage() {
         isOpen={!!confirmModal}
         title={confirmModal?.title || ''}
         message={confirmModal?.message || ''}
-        onConfirm={confirmModal?.onConfirm || (() => {})}
+        onConfirm={confirmModal?.onConfirm || (() => { })}
         onCancel={() => setConfirmModal(null)}
       />
     </div>

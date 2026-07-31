@@ -96,8 +96,6 @@ export function SampleDetailPage() {
       'Category',
       'Name of the Product',
       'Batch No',
-      'Sample Code',
-      'Stability Type',
       'Quantity',
       'Mfg Date',
       'Exp Date',
@@ -183,8 +181,6 @@ export function SampleDetailPage() {
       escapeCSVCell(product?.category || ''),
       escapeCSVCell(product?.name || ''),
       escapeCSVCell(batch?.batchNo || batch?.batchCode || ''),
-      escapeCSVCell(sample.sampleCode),
-      escapeCSVCell(sample.stabilityType),
       escapeCSVCell(sample.quantity),
       escapeCSVCell(formatMMM_YYYY(sample.manufacturingDate)),
       escapeCSVCell(formatMMM_YYYY(sample.expiryDate)),
@@ -194,7 +190,7 @@ export function SampleDetailPage() {
       escapeCSVCell(sample.remarks || ''),
     ];
 
-    const csvRows = [headers.join(','), row.join(',')];
+    const csvRows = ['National Health care Pivate limited', headers.join(','), row.join(',')];
     const csvContent = '\uFEFF' + csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -338,6 +334,9 @@ export function SampleDetailPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
         <div className="space-y-1">
+          <div className="hidden print:block text-xl font-extrabold text-slate-900 dark:text-white mb-2">
+            National Health care Pivate limited
+          </div>
           <Link
             to="/samples"
             className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-300 flex items-center gap-1 transition no-print"

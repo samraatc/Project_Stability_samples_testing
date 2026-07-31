@@ -487,8 +487,6 @@ export function RecordsPage() {
         'Category',
         'Name of the Product',
         'Batch No',
-        'Sample Code',
-        'Stability Type',
         'Quantity',
         'Mfg Date',
         'Exp Date',
@@ -533,8 +531,6 @@ export function RecordsPage() {
           s.product?.category || '',
           s.product?.name || '',
           (s.batch as any)?.batchNo || s.batch?.batchCode || '',
-          s.sampleCode,
-          s.stabilityType,
           s.quantity,
           formatMMM_YYYY(s.manufacturingDate),
           formatMMM_YYYY(s.expiryDate),
@@ -570,6 +566,10 @@ export function RecordsPage() {
       colWidths.forEach((width) => {
         xmlContent += `   <Column ss:Width="${Math.round(width)}"/>\n`;
       });
+
+      xmlContent += `   <Row ss:Height="26">\n`;
+      xmlContent += `    <Cell ss:MergeAcross="${headers.length - 1}"><Data ss:Type="String">National Health care Pivate limited</Data></Cell>\n`;
+      xmlContent += `   </Row>\n`;
 
       xmlContent += `   <Row ss:Height="22">\n`;
       headers.forEach((h) => {
@@ -635,8 +635,6 @@ export function RecordsPage() {
         'Category',
         'Name of the Product',
         'Batch No',
-        'Sample Code',
-        'Stability Type',
         'Quantity',
         'Mfg Date',
         'Exp Date',
@@ -667,6 +665,7 @@ export function RecordsPage() {
       };
 
       const csvRows: string[] = [];
+      csvRows.push('National Health care Pivate limited');
       csvRows.push(headers.join(','));
 
       exportSamples.forEach((s) => {
@@ -681,8 +680,6 @@ export function RecordsPage() {
           escapeCSVCell(s.product?.category || ''),
           escapeCSVCell(s.product?.name || ''),
           escapeCSVCell((s.batch as any)?.batchNo || s.batch?.batchCode || ''),
-          escapeCSVCell(s.sampleCode),
-          escapeCSVCell(s.stabilityType),
           escapeCSVCell(s.quantity),
           escapeCSVCell(formatMMM_YYYY(s.manufacturingDate)),
           escapeCSVCell(formatMMM_YYYY(s.expiryDate)),
@@ -1398,10 +1395,13 @@ export function RecordsPage() {
       >
         {/* Print Only Title */}
         <div className="hidden print:block p-6 border-b border-slate-200 dark:border-slate-800">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            ESMS - Stability Studies Records List
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            National Health care Pivate limited
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-1">
+            ESMS - Stability Studies Records List
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Generated: {new Date().toLocaleDateString()}
           </p>
         </div>
@@ -2148,6 +2148,9 @@ export function RecordsPage() {
           {/* Header */}
           <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
             <div>
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                National Health care Pivate limited
+              </p>
               <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase">
                 Stability Study Record Card
               </h1>

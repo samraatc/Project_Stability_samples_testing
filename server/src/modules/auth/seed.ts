@@ -18,27 +18,43 @@ export async function seedRoles(): Promise<void> {
 }
 
 export async function seedSuperAdmin(email: string, password: string): Promise<void> {
-  const existing = await userRepository.findByEmailWithRole(email);
-  if (existing) {
-    logger.info('Super admin already exists - skipping', { email });
-    return;
-  }
-
   const role = await roleRepository.findByName(ROLE_NAMES.SUPER_ADMIN);
   if (!role) {
     throw new Error('super-admin role missing; run seedRoles first');
   }
 
+  const passwordHash = await hashPassword(password);
+  const normalizedEmail = email.toLowerCase();
+
+  // 1. Look for user by email
+  let existingUser = await UserModel.findOne({ email: normalizedEmail }).exec();
+
+  // 2. If not found by email, look for existing super-admin account
+  if (!existingUser) {
+    existingUser = await UserModel.findOne({ role: role._id, isDeleted: false }).exec();
+  }
+
+  if (existingUser) {
+    existingUser.email = normalizedEmail;
+    existingUser.passwordHash = passwordHash;
+    existingUser.status = 'active';
+    existingUser.role = role._id;
+    existingUser.isDeleted = false;
+    await existingUser.save();
+    logger.info('Super admin account updated with seed credentials', { email: normalizedEmail });
+    return;
+  }
+
   await UserModel.create({
-    email,
-    passwordHash: await hashPassword(password),
+    email: normalizedEmail,
+    passwordHash,
     firstName: 'Super',
     lastName: 'Admin',
     role: role._id,
     status: 'active',
   });
 
-  logger.warn('Super admin created - change this password after first login', { email });
+  logger.info('Super admin account created with seed credentials', { email: normalizedEmail });
 }
 
 /**

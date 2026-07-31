@@ -527,11 +527,9 @@ export function DashboardPage() {
     }
 
     const headers = [
-      'Sample Code',
       'Product Name',
       'Product Code',
       'Batch Code',
-      'Stability Type',
       'Status',
       'Charging Date',
       'Expiry Date',
@@ -541,11 +539,9 @@ export function DashboardPage() {
     ];
 
     const rows = filteredSamples.map((s) => [
-      s.sampleCode,
       s.product?.name || '',
       s.product?.code || '',
       s.batch?.batchCode || '',
-      s.stabilityType,
       s.status,
       s.chargingDate ? new Date(s.chargingDate).toLocaleDateString() : '',
       s.expiryDate ? new Date(s.expiryDate).toLocaleDateString() : '',
@@ -555,6 +551,7 @@ export function DashboardPage() {
     ]);
 
     const csvContent = [
+      'National Health care Pivate limited',
       headers.join(','),
       ...rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
