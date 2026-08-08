@@ -15,8 +15,26 @@ export function createApp(): Express {
 
   app.set('trust proxy', 1);
 
+  const allowedOrigins = env.CLIENT_URL.split(',').map((o) => o.trim());
+
   app.use(helmet());
-  app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (
+          allowedOrigins.includes(origin) ||
+          allowedOrigins.includes('*') ||
+          /\.netlify\.app$/.test(new URL(origin).hostname) ||
+          /\.vercel\.app$/.test(new URL(origin).hostname)
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
+      credentials: true,
+    }),
+  );
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());

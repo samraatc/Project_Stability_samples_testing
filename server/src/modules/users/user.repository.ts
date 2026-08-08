@@ -6,6 +6,10 @@ export type UserDocument = HydratedDocument<IUser>;
 export type UserWithRole = HydratedDocument<Omit<IUser, 'role'> & { role: IRole }>;
 
 export const userRepository = {
+  findByEmail(email: string): Promise<UserDocument | null> {
+    return UserModel.findOne({ email: email.toLowerCase(), isDeleted: false }).exec();
+  },
+
   findByEmailWithRole(email: string): Promise<UserWithRole | null> {
     return UserModel.findOne({ email: email.toLowerCase(), isDeleted: false })
       .populate<{ role: IRole }>('role')

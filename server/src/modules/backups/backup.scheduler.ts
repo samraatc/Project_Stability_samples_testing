@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
@@ -7,7 +7,7 @@ import { BackupModel } from './backup.model';
 import { BackupSettingsModel } from './backup-settings.model';
 import { logger } from '../../utils/logger';
 
-let activeBackupTask: cron.ScheduledTask | null = null;
+let activeBackupTask: ScheduledTask | null = null;
 
 // Helper to resolve the storage directory on the server
 export const getBackupDirectory = () => {

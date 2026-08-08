@@ -2,7 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+# Single Page Application (SPA) fallback rule for React Router on page refresh
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
+
