@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useAuth } from '@/features/auth/auth-context';
 
@@ -17,7 +17,11 @@ type LoginFormValues = z.infer<typeof loginFormSchema>;
 export function LoginPage() {
   const { user, isLoading, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const from = (location.state as { from?: { pathname: string; search?: string } })?.from;
+  const redirectTarget = from ? `${from.pathname}${from.search || ''}` : '/';
 
   const {
     register,
@@ -29,14 +33,14 @@ export function LoginPage() {
   });
 
   if (!isLoading && user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={redirectTarget} replace />;
   }
 
   const onSubmit = async (values: LoginFormValues) => {
     setServerError(null);
     try {
       await login(values.email, values.password, values.rememberMe);
-      navigate('/', { replace: true });
+      navigate(redirectTarget, { replace: true });
     } catch (error) {
       const message =
         isAxiosError(error) && typeof error.response?.data?.message === 'string'

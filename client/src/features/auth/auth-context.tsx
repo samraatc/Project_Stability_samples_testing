@@ -32,20 +32,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updated);
   }, []);
 
-  // Session bootstrap: the refresh cookie (if any) mints an access token.
+  // Session bootstrap: the refresh cookie (or stored session token) restores the user state.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const token = await requestRefresh();
-      if (token && !cancelled) {
-        try {
+      try {
+        let token = await requestRefresh();
+        if (token && !cancelled) {
           const me = await fetchMe();
           if (!cancelled) setUser(me);
-        } catch {
-          if (!cancelled) setUser(null);
+        } else if (!cancelled) {
+          setUser(null);
         }
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      if (!cancelled) setIsLoading(false);
     })();
     return () => {
       cancelled = true;

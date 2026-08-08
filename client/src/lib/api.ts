@@ -1,13 +1,41 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-/** Access token lives in memory only - never in localStorage. */
-let accessToken: string | null = null;
+const TOKEN_KEY = 'esms_access_token';
 
-export function setAccessToken(token: string | null): void {
+/** Access token stored in memory with fallback to storage for page reloads. */
+let accessToken: string | null = (() => {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+})();
+
+export function setAccessToken(token: string | null, rememberMe = true): void {
   accessToken = token;
+  try {
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      if (rememberMe) {
+        localStorage.setItem(TOKEN_KEY, token);
+      }
+    } else {
+      sessionStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
 }
 
 export function getAccessToken(): string | null {
+  if (!accessToken) {
+    try {
+      accessToken = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+    } catch {
+      accessToken = null;
+    }
+  }
   return accessToken;
 }
 
@@ -19,8 +47,9 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
+  const token = getAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -40,6 +69,10 @@ async function refreshAccessToken(): Promise<string | null> {
     setAccessToken(token);
     return token;
   } catch {
+    const existing = getAccessToken();
+    if (existing) {
+      return existing;
+    }
     setAccessToken(null);
     return null;
   }
