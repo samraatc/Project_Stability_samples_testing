@@ -5,7 +5,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { catalogApi } from '@/features/catalog/api';
 import { fetchUsers, fetchAuditLogs, fetchSystemHealth } from '@/features/admin/api';
 import { api } from '@/lib/api';
-import type { Sample } from '@/features/catalog/types';
+import { isSampleFullyCompleted, type Sample } from '@/features/catalog/types';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -412,7 +412,7 @@ export function DashboardPage() {
 
     // Filter out studies that have completed all tests or marked completed
     const activeList = list.filter(
-      (item) => !item.isCompleted && item.sample.status !== 'completed',
+      (item) => !item.isCompleted && !isSampleFullyCompleted(item.sample),
     );
 
     // Sort by nearestDays ascending (overdue tests with negative days first, then 0, 1, 2...)
@@ -447,7 +447,10 @@ export function DashboardPage() {
       if (filterBatch && !s.batch?.batchCode.toLowerCase().includes(filterBatch.toLowerCase()))
         return false;
       if (filterSection && s.section?._id !== filterSection) return false;
-      if (filterStatus && s.status !== filterStatus) return false;
+      if (filterStatus) {
+        const effective = isSampleFullyCompleted(s) ? 'completed' : s.status;
+        if (effective !== filterStatus) return false;
+      }
 
       // Start/End Dates
       if (filterStartDate) {
@@ -486,8 +489,8 @@ export function DashboardPage() {
       }
 
       // 3. KPI Active Card Filter
-      if (kpiFilter === 'running' && s.status !== 'running') return false;
-      if (kpiFilter === 'completed' && s.status !== 'completed') return false;
+      if (kpiFilter === 'running' && (isSampleFullyCompleted(s) || s.status === 'registered')) return false;
+      if (kpiFilter === 'completed' && !isSampleFullyCompleted(s)) return false;
       if (kpiFilter === 'overdue') {
         const hasOverdue = s.intervals.some((m) => {
           const test = s.intervalTests?.find((it) => it.interval === m);
@@ -637,9 +640,9 @@ export function DashboardPage() {
       run = 0,
       comp = 0;
     samples.forEach((s) => {
-      if (s.status === 'registered') reg++;
-      else if (s.status === 'running') run++;
-      else if (s.status === 'completed') comp++;
+      if (isSampleFullyCompleted(s)) comp++;
+      else if (s.status === 'registered') reg++;
+      else run++;
     });
     return [
       { name: 'Registered', value: reg, color: '#64748b' },
@@ -1020,7 +1023,7 @@ export function DashboardPage() {
               Running Samples
             </div>
             <div className="text-2xl font-extrabold mt-0.5 leading-none">
-              {samples.filter((s) => s.status === 'running').length}
+              {samples.filter((s) => !isSampleFullyCompleted(s) && s.status !== 'registered').length}
             </div>
           </div>
         </div>
@@ -1038,7 +1041,7 @@ export function DashboardPage() {
               Completed Samples
             </div>
             <div className="text-2xl font-extrabold mt-0.5 leading-none">
-              {samples.filter((s) => s.status === 'completed').length}
+              {samples.filter((s) => isSampleFullyCompleted(s)).length}
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { catalogApi } from '@/features/catalog/api';
-import type { Product, Batch } from '@/features/catalog/types';
+import { isSampleFullyCompleted, type Product, type Batch } from '@/features/catalog/types';
 import { ErrorBanner, apiErrorMessage, btnGhost, inputClass } from '@/components/ui';
 
 export function SampleDetailPage() {
@@ -349,20 +349,32 @@ export function SampleDetailPage() {
             </h1>
             <span
               className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                sample.status === 'completed'
+                isSampleFullyCompleted(sample)
                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30'
                   : sample.status === 'running'
                     ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50'
               }`}
             >
-              {sample.status}
+              {isSampleFullyCompleted(sample) ? 'completed' : sample.status}
             </span>
           </div>
         </div>
 
-        {/* Download Menu */}
-        <div className="relative no-print">
+        {/* Download Menu & Redirect Actions */}
+        <div className="flex items-center gap-2 relative no-print">
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                `/records?search=${encodeURIComponent(sample.sampleCode)}&sampleId=${sample._id}&openCard=true`,
+              )
+            }
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/60 shadow-2xs transition cursor-pointer"
+            title="Redirect to Records and open Study Detail Card for this sample"
+          >
+            📋 View Sample Records →
+          </button>
           <button
             onClick={() => setShowDownloadMenu(!showDownloadMenu)}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 shadow-sm transition cursor-pointer"

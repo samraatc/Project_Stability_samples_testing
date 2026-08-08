@@ -52,8 +52,14 @@ export const catalogApi = {
       chamber?: string;
       interval?: number;
       mfgDate?: string;
+      mfgDateFrom?: string;
+      mfgDateTo?: string;
       expDate?: string;
+      expDateFrom?: string;
+      expDateTo?: string;
       chargeDate?: string;
+      chargeDateFrom?: string;
+      chargeDateTo?: string;
       sampleId?: string;
       prodCode?: string;
       batchCode?: string;

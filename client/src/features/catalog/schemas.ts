@@ -28,6 +28,7 @@ export const sampleFormSchema = z
     expiryDate: z.string().optional(),
     chargingDate: z.string().min(1, 'Required'),
     quantity: z.coerce.number().min(0, 'Quantity must be zero or more'),
+    intervals: z.array(z.number()).optional(),
     remarks: z.string(),
   })
   .superRefine((v, ctx) => {

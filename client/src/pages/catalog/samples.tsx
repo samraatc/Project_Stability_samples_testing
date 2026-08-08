@@ -6,7 +6,14 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { catalogApi } from '@/features/catalog/api';
 import { sampleFormSchema, type SampleFormValues } from '@/features/catalog/schemas';
-import { SAMPLE_STATUSES, STABILITY_TYPES, type Sample } from '@/features/catalog/types';
+import {
+  SAMPLE_STATUSES,
+  STABILITY_TYPES,
+  DEFAULT_INTERVALS_BY_TYPE,
+  STABILITY_TYPE_INFO,
+  isSampleFullyCompleted,
+  type Sample,
+} from '@/features/catalog/types';
 import { Combobox } from '@/components/combobox';
 import {
   ErrorBanner,
@@ -92,8 +99,22 @@ export function SamplesPage() {
     },
   });
 
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
+  const [selectedIntervals, setSelectedIntervals] = useState<number[]>([3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]);
+  const [customMonthInput, setCustomMonthInput] = useState<string>('');
+
   const selectedProductId = watch('productId');
   const selectedBatchId = watch('batchId');
+  const selectedStabilityType = watch('stabilityType');
+
+  // Auto-set recommended intervals whenever stability type changes
+  useEffect(() => {
+    if (selectedStabilityType) {
+      const defaults = DEFAULT_INTERVALS_BY_TYPE[selectedStabilityType] || [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
+      setSelectedIntervals(defaults);
+    }
+  }, [selectedStabilityType]);
 
   const batchesQuery = useQuery({
     queryKey: ['batches', 'for-product', selectedProductId],
@@ -120,6 +141,7 @@ export function SamplesPage() {
         ...values,
         sectionId: values.sectionId || undefined,
         expiryDate: values.expiryDate || undefined,
+        intervals: selectedIntervals.length > 0 ? selectedIntervals : undefined,
       }),
     onSuccess: () => {
       setShowCreate(false);
@@ -346,16 +368,117 @@ export function SamplesPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="s-type" className="form-label">
-                    Stability Study Type *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="s-type" className="form-label mb-0">
+                      Stability Study Type *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowInfoModal(true)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      title="View Study Type Info & ICH Guidelines"
+                    >
+                      ℹ️ Info & Guidelines
+                    </button>
+                  </div>
                   <select id="s-type" className={inputClass} {...register('stabilityType')}>
                     {STABILITY_TYPES.map((t) => (
                       <option key={t} value={t}>
-                        {t}
+                        {t.toUpperCase()} ({STABILITY_TYPE_INFO[t]?.period || ''})
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Interactive Testing Month Intervals Section */}
+                <div className="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                        Testing Month Intervals (Testing Period)
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                        Auto-assigned for <span className="font-bold text-blue-600 dark:text-blue-400">{selectedStabilityType?.toUpperCase()}</span> ({STABILITY_TYPE_INFO[selectedStabilityType]?.period || ''}). Click to customize.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaults = DEFAULT_INTERVALS_BY_TYPE[selectedStabilityType] || [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
+                        setSelectedIntervals(defaults);
+                      }}
+                      className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      🔄 Reset Defaults
+                    </button>
+                  </div>
+
+                  {/* Interval Checkboxes */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from(new Set([1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, ...selectedIntervals]))
+                      .sort((a, b) => a - b)
+                      .map((m) => {
+                        const isSelected = selectedIntervals.includes(m);
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                if (selectedIntervals.length > 1) {
+                                  setSelectedIntervals(selectedIntervals.filter((i) => i !== m));
+                                }
+                              } else {
+                                setSelectedIntervals([...selectedIntervals, m].sort((a, b) => a - b));
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition border cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            {isSelected ? '✓ ' : ''}{m}M
+                          </button>
+                        );
+                      })}
+                  </div>
+
+                  {/* Custom Month Adder */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      placeholder="Add Custom Month (e.g. 4, 8, 48)..."
+                      value={customMonthInput}
+                      onChange={(e) => setCustomMonthInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = Number(customMonthInput);
+                          if (val > 0 && !selectedIntervals.includes(val)) {
+                            setSelectedIntervals([...selectedIntervals, val].sort((a, b) => a - b));
+                            setCustomMonthInput('');
+                          }
+                        }
+                      }}
+                      className="w-56 text-xs px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = Number(customMonthInput);
+                        if (val > 0 && !selectedIntervals.includes(val)) {
+                          setSelectedIntervals([...selectedIntervals, val].sort((a, b) => a - b));
+                          setCustomMonthInput('');
+                        }
+                      }}
+                      className="px-3 py-1 rounded-lg bg-slate-800 dark:bg-slate-700 text-white text-xs font-semibold hover:bg-slate-700 transition cursor-pointer"
+                    >
+                      ➕ Add Custom Month
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -489,6 +612,72 @@ export function SamplesPage() {
           document.body,
         )}
 
+      {/* Information Modal for Stability Study Types */}
+      {showInfoModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col text-left space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">ℹ️</span>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Stability Study Types & ICH Guidelines
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowInfoModal(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold text-lg cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                {Object.entries(STABILITY_TYPE_INFO).map(([key, info]) => (
+                  <div
+                    key={key}
+                    className={`p-3.5 rounded-xl border ${
+                      selectedStabilityType === key
+                        ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/20'
+                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-slate-900 dark:text-white uppercase text-xs">
+                        {info.title}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-extrabold text-[10px]">
+                        {info.period}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                      🌡️ Condition: {info.condition}
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed mb-1.5">
+                      {info.description}
+                    </p>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 italic border-l-2 border-slate-300 dark:border-slate-700 pl-2 py-0.5">
+                      {info.ichGuideline}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowInfoModal(false)}
+                  className={btnPrimary}
+                >
+                  Got It
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       <div className="table-container">
         <table className="table-admin">
           <thead>
@@ -603,15 +792,20 @@ export function SamplesPage() {
                 <td className="px-4 py-3">
                   <select
                     aria-label={`Status for ${s.sampleCode}`}
-                    value={s.status}
+                    value={isSampleFullyCompleted(s) ? 'completed' : s.status}
                     onChange={(e) => {
+                      const newStatus = e.target.value as Sample['status'];
+                      if (newStatus === 'completed' && !isSampleFullyCompleted(s)) {
+                        setShowValidationErrorModal(true);
+                        return;
+                      }
                       setActionError(null);
                       statusMutation.mutate({
                         id: s._id,
-                        status: e.target.value as Sample['status'],
+                        status: newStatus,
                       });
                     }}
-                    className={`rounded-full border-0 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusStyle[s.status]}`}
+                    className={`rounded-full border-0 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusStyle[isSampleFullyCompleted(s) ? 'completed' : s.status]}`}
                   >
                     {SAMPLE_STATUSES.map((st) => (
                       <option key={st} value={st}>
@@ -683,6 +877,43 @@ export function SamplesPage() {
       </div>
 
       <Pager data={data} page={page} onPage={setPage} />
+
+      {/* Validation Error Modal */}
+      {showValidationErrorModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto no-print">
+            <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col text-left space-y-4 animate-menu-fade">
+              <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-xl">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Cannot mark this test as Completed
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Completion requirements not fulfilled.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
+                Required testing is still incomplete. Please complete all required month-wise tests and ensure all required results are successful before marking the sample as Completed.
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowValidationErrorModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs hover:bg-slate-800 dark:hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Understood
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { catalogApi } from '@/features/catalog/api';
 import {
   SAMPLE_STATUSES,
   STABILITY_TYPES,
+  isSampleFullyCompleted,
   type Sample,
   type IntervalTest,
 } from '@/features/catalog/types';
@@ -12,19 +14,46 @@ import { useAuth } from '@/features/auth/auth-context';
 import { ErrorBanner, apiErrorMessage, btnGhost, btnPrimary, inputClass } from '@/components/ui';
 
 const statusColors: Record<Sample['status'], string> = {
-  registered: 'bg-slate-100 text-slate-700 border-slate-200',
-  running: 'bg-blue-50 text-blue-700 border-blue-100',
-  completed: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  registered:
+    'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  running:
+    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+  completed:
+    'bg-emerald-100/90 text-emerald-800 border-emerald-300 dark:bg-emerald-950/90 dark:text-emerald-300 dark:border-emerald-700 font-bold',
 };
+
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 export function RecordsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // State Management
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const searchFromUrl = searchParams.get('search') || searchParams.get('sampleCode');
+    if (searchFromUrl) {
+      setSearchTerm(searchFromUrl);
+    }
+  }, [searchParams]);
 
   // Combined Advanced Filters
   const [filterStatus, setFilterStatus] = useState<string>('');
@@ -37,6 +66,13 @@ export function RecordsPage() {
   const [filterSampleId, setFilterSampleId] = useState<string>('');
   const [filterProdCode, setFilterProdCode] = useState<string>('');
   const [filterBatchCode, setFilterBatchCode] = useState<string>('');
+
+  // Custom Date-Wise & Present Month Filter States
+  const [filterDateBasis, setFilterDateBasis] = useState<'charging' | 'pull' | 'mfg' | 'exp'>('charging');
+  const [filterDatePreset, setFilterDatePreset] = useState<'all' | 'present_month' | 'today' | 'this_quarter' | 'this_year' | 'custom'>('all');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [filterPresentMonthOnly, setFilterPresentMonthOnly] = useState<boolean>(false);
 
   // Sort and pagination states
   const [sortField, setSortField] = useState<string>('sampleCode');
@@ -54,6 +90,7 @@ export function RecordsPage() {
     expiryDate: '',
   });
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
 
   // Interval Test Dialog States
   const [intervalTestEdit, setIntervalTestEdit] = useState<{
@@ -92,6 +129,67 @@ export function RecordsPage() {
   // AuthCheck
   const canManage = user?.permissions.includes('samples:manage') || false;
 
+  // Effective Date Range based on Presets and Present Month Toggle
+  const { effectiveStartDate, effectiveEndDate, presentMonthName } = useMemo(() => {
+    const now = new Date();
+    const currentMonthName = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+
+    if (filterPresentMonthOnly || filterDatePreset === 'present_month') {
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startStr = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
+      const endStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+      return {
+        effectiveStartDate: startStr,
+        effectiveEndDate: endStr,
+        presentMonthName: currentMonthName,
+      };
+    }
+
+    if (filterDatePreset === 'today') {
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      return { effectiveStartDate: todayStr, effectiveEndDate: todayStr, presentMonthName: currentMonthName };
+    }
+
+    if (filterDatePreset === 'this_quarter') {
+      const year = now.getFullYear();
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const firstDay = new Date(year, qStartMonth, 1);
+      const lastDay = new Date(year, qStartMonth + 3, 0);
+      const startStr = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
+      const endStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+      return {
+        effectiveStartDate: startStr,
+        effectiveEndDate: endStr,
+        presentMonthName: currentMonthName,
+      };
+    }
+
+    if (filterDatePreset === 'this_year') {
+      const year = now.getFullYear();
+      return {
+        effectiveStartDate: `${year}-01-01`,
+        effectiveEndDate: `${year}-12-31`,
+        presentMonthName: currentMonthName,
+      };
+    }
+
+    return {
+      effectiveStartDate: filterStartDate,
+      effectiveEndDate: filterEndDate,
+      presentMonthName: currentMonthName,
+    };
+  }, [filterPresentMonthOnly, filterDatePreset, filterStartDate, filterEndDate]);
+
+  const isDateRangeActive = Boolean(effectiveStartDate || effectiveEndDate);
+  const isClientFilteredDate =
+    filterPresentMonthOnly || filterDateBasis === 'pull' || filterDatePreset === 'present_month';
+
+  const isChargingRangeActive =
+    isDateRangeActive && filterDateBasis === 'charging' && !filterPresentMonthOnly && filterDatePreset !== 'present_month';
+
   // List queries
   const samplesQuery = useQuery({
     queryKey: [
@@ -107,6 +205,11 @@ export function RecordsPage() {
       filterMfgDate,
       filterExpDate,
       filterChargeDate,
+      filterDateBasis,
+      filterDatePreset,
+      effectiveStartDate,
+      effectiveEndDate,
+      filterPresentMonthOnly,
       filterSampleId,
       filterProdCode,
       filterBatchCode,
@@ -115,17 +218,44 @@ export function RecordsPage() {
     ],
     queryFn: () =>
       catalogApi.samples.list({
-        page: filterInterval ? 1 : currentPage,
-        limit: filterInterval ? 1000 : itemsPerPage,
+        page: filterInterval || isClientFilteredDate ? 1 : currentPage,
+        limit: filterInterval || isClientFilteredDate ? 1000 : itemsPerPage,
         search: searchTerm || undefined,
         status: filterStatus || undefined,
         excludeStatus: 'registered',
         stabilityType: filterType || undefined,
         chamber: filterChamber || undefined,
         interval: filterInterval ? Number(filterInterval) : undefined,
-        mfgDate: filterMfgDate || undefined,
-        expDate: filterExpDate || undefined,
-        chargeDate: filterChargeDate || undefined,
+        mfgDate:
+          !isDateRangeActive && filterDateBasis === 'mfg' ? filterMfgDate || undefined : undefined,
+        expDate:
+          !isDateRangeActive && filterDateBasis === 'exp' ? filterExpDate || undefined : undefined,
+        chargeDate:
+          !isDateRangeActive && filterDateBasis === 'charging' && !filterPresentMonthOnly
+            ? filterChargeDate || undefined
+            : undefined,
+
+        chargeDateFrom: isChargingRangeActive ? effectiveStartDate || undefined : undefined,
+        chargeDateTo: isChargingRangeActive ? effectiveEndDate || undefined : undefined,
+
+        mfgDateFrom:
+          isDateRangeActive && filterDateBasis === 'mfg'
+            ? effectiveStartDate || undefined
+            : undefined,
+        mfgDateTo:
+          isDateRangeActive && filterDateBasis === 'mfg'
+            ? effectiveEndDate || undefined
+            : undefined,
+
+        expDateFrom:
+          isDateRangeActive && filterDateBasis === 'exp'
+            ? effectiveStartDate || undefined
+            : undefined,
+        expDateTo:
+          isDateRangeActive && filterDateBasis === 'exp'
+            ? effectiveEndDate || undefined
+            : undefined,
+
         sampleId: filterSampleId || undefined,
         prodCode: filterProdCode || undefined,
         batchCode: filterBatchCode || undefined,
@@ -134,6 +264,25 @@ export function RecordsPage() {
         archived: false,
       }),
   });
+
+  const openCardParam = searchParams.get('openCard') === 'true';
+  const sampleIdParam = searchParams.get('sampleId');
+  const sampleCodeParam = searchParams.get('sampleCode') || searchParams.get('search');
+
+  // Auto-open Study Detail Card modal if openCard=true is passed in URL
+  useEffect(() => {
+    if (openCardParam && samplesQuery.data?.items) {
+      const items = samplesQuery.data.items;
+      const matched = items.find(
+        (s) =>
+          (sampleIdParam && s._id === sampleIdParam) ||
+          (sampleCodeParam && s.sampleCode.toLowerCase() === sampleCodeParam.toLowerCase()),
+      );
+      if (matched) {
+        setSelectedSample(matched);
+      }
+    }
+  }, [openCardParam, sampleIdParam, sampleCodeParam, samplesQuery.data]);
 
   const productsQuery = useQuery({
     queryKey: ['products', 'records-chambers'],
@@ -217,10 +366,93 @@ export function RecordsPage() {
     return chambers;
   }, [productsQuery.data]);
 
+  // Helper to check target pull dates for a sample within date range
+  const getSamplePullDatesInRange = (
+    s: Sample,
+    startDateStr?: string,
+    endDateStr?: string,
+    upcomingOnly: boolean = false,
+  ) => {
+    if (!s.chargingDate) return [];
+    const chargingDate = new Date(s.chargingDate);
+    if (isNaN(chargingDate.getTime())) return [];
+
+    const availableIntervals =
+      s.intervals && s.intervals.length > 0
+        ? s.intervals
+        : [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
+
+    let start: Date | null = null;
+    if (startDateStr) {
+      const parts = startDateStr.split('-').map(Number);
+      if (parts.length === 3) {
+        start = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+      }
+    }
+
+    let end: Date | null = null;
+    if (endDateStr) {
+      const parts = endDateStr.split('-').map(Number);
+      if (parts.length === 3) {
+        end = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+      }
+    }
+
+    const matched: { interval: number; pullDate: Date; pullDateStr: string; status: string }[] = [];
+
+    availableIntervals.forEach((m) => {
+      const test = s.intervalTests?.find((it) => it.interval === m);
+      const testStatus = test?.status || 'pending';
+
+      // If upcomingOnly is true, skip already completed tests
+      if (upcomingOnly && testStatus === 'completed') {
+        return;
+      }
+
+      const pullDate = new Date(chargingDate);
+      pullDate.setMonth(pullDate.getMonth() + m);
+
+      let isMatch = true;
+      if (start && pullDate.getTime() < start.getTime()) isMatch = false;
+      if (end && pullDate.getTime() > end.getTime()) isMatch = false;
+
+      if (isMatch) {
+        matched.push({
+          interval: m,
+          pullDate,
+          pullDateStr: `${MONTH_NAMES[pullDate.getMonth()]} ${pullDate.getFullYear()}`,
+          status: testStatus,
+        });
+      }
+    });
+
+    return matched;
+  };
+
   // Sorted and Paginated samples
   const sortedSamples = useMemo(() => {
-    return samplesQuery.data?.items || [];
-  }, [samplesQuery.data]);
+    const rawItems = samplesQuery.data?.items || [];
+    if (
+      (filterDateBasis === 'pull' && isDateRangeActive) ||
+      filterPresentMonthOnly ||
+      filterDatePreset === 'present_month'
+    ) {
+      return rawItems.filter((s) => {
+        // Filter for upcoming tests (pending/in_progress) due in target month/range
+        const pullMatches = getSamplePullDatesInRange(s, effectiveStartDate, effectiveEndDate, true);
+        return pullMatches.length > 0;
+      });
+    }
+    return rawItems;
+  }, [
+    samplesQuery.data,
+    filterDateBasis,
+    isDateRangeActive,
+    filterPresentMonthOnly,
+    filterDatePreset,
+    effectiveStartDate,
+    effectiveEndDate,
+  ]);
 
   const intervalNum = filterInterval ? Number(filterInterval) : null;
 
@@ -284,6 +516,11 @@ export function RecordsPage() {
     filterMfgDate,
     filterExpDate,
     filterChargeDate,
+    filterDateBasis,
+    filterDatePreset,
+    filterStartDate,
+    filterEndDate,
+    filterPresentMonthOnly,
   ]);
 
   // Open filters automatically if any filter has a value
@@ -296,6 +533,10 @@ export function RecordsPage() {
       filterMfgDate ||
       filterExpDate ||
       filterChargeDate ||
+      filterStartDate ||
+      filterEndDate ||
+      filterDatePreset !== 'all' ||
+      filterPresentMonthOnly ||
       filterSampleId ||
       filterProdCode ||
       filterBatchCode
@@ -310,6 +551,10 @@ export function RecordsPage() {
     filterMfgDate,
     filterExpDate,
     filterChargeDate,
+    filterStartDate,
+    filterEndDate,
+    filterDatePreset,
+    filterPresentMonthOnly,
     filterSampleId,
     filterProdCode,
     filterBatchCode,
@@ -325,6 +570,11 @@ export function RecordsPage() {
     setFilterMfgDate('');
     setFilterExpDate('');
     setFilterChargeDate('');
+    setFilterDateBasis('charging');
+    setFilterDatePreset('all');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterPresentMonthOnly(false);
     setFilterSampleId('');
     setFilterProdCode('');
     setFilterBatchCode('');
@@ -332,6 +582,34 @@ export function RecordsPage() {
 
   const activeFilterChips = useMemo(() => {
     const chips: { key: string; label: string; reset: () => void }[] = [];
+    if (filterPresentMonthOnly || filterDatePreset === 'present_month') {
+      chips.push({
+        key: 'presentMonth',
+        label: `📅 Present Month Tests (${presentMonthName})`,
+        reset: () => {
+          setFilterPresentMonthOnly(false);
+          if (filterDatePreset === 'present_month') setFilterDatePreset('all');
+        },
+      });
+    } else if (filterDatePreset && filterDatePreset !== 'all') {
+      chips.push({
+        key: 'datePreset',
+        label: `Preset (${filterDateBasis.toUpperCase()}): ${filterDatePreset.replace('_', ' ')}`,
+        reset: () => setFilterDatePreset('all'),
+      });
+    }
+
+    if (filterStartDate || filterEndDate) {
+      chips.push({
+        key: 'customRange',
+        label: `Range (${filterDateBasis.toUpperCase()}): ${filterStartDate || '...'} to ${filterEndDate || '...'}`,
+        reset: () => {
+          setFilterStartDate('');
+          setFilterEndDate('');
+        },
+      });
+    }
+
     if (filterStatus)
       chips.push({
         key: 'status',
@@ -386,6 +664,12 @@ export function RecordsPage() {
       });
     return chips;
   }, [
+    filterPresentMonthOnly,
+    filterDatePreset,
+    filterDateBasis,
+    presentMonthName,
+    filterStartDate,
+    filterEndDate,
     filterStatus,
     filterType,
     filterChamber,
@@ -409,26 +693,11 @@ export function RecordsPage() {
   };
 
   // Date converters
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
   const formatMMM_YYYY = (dateStr: string | Date | null | undefined) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return '—';
-    return `${months[d.getMonth()]}/${d.getFullYear()}`;
+    return `${MONTH_NAMES[d.getMonth()]}/${d.getFullYear()}`;
   };
 
   const formatDD_MM_YYYY = (dateStr: string | Date | null | undefined) => {
@@ -445,7 +714,7 @@ export function RecordsPage() {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return '';
-    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
   };
 
   const calculateTargetPullDate = (chargingDateStr: string, intervalMonth: number) => {
@@ -713,10 +982,11 @@ export function RecordsPage() {
   const handleEditClick = (sample: Sample) => {
     setEditingSample(sample);
     setActionError(null);
+    const isCompleted = isSampleFullyCompleted(sample);
     setEditForm({
       quantity: sample.quantity,
       remarks: sample.remarks || '',
-      status: sample.status,
+      status: isCompleted ? 'completed' : sample.status,
       expiryDate: sample.expiryDate ? sample.expiryDate.slice(0, 10) : '',
     });
   };
@@ -724,6 +994,10 @@ export function RecordsPage() {
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSample) return;
+    if (editForm.status === 'completed' && !isSampleFullyCompleted(editingSample)) {
+      setShowValidationErrorModal(true);
+      return;
+    }
     setActionError(null);
     updateMutation.mutate({
       id: editingSample._id,
@@ -825,7 +1099,7 @@ export function RecordsPage() {
     return (
       <div className="table-container max-h-[600px] overflow-y-auto">
         <table className="table-admin">
-          <thead className="sticky top-0 z-10 select-none">
+          <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
             <tr>
               <th className="px-4 py-3.5">S.N.</th>
               <th className="px-4 py-3.5 whitespace-nowrap">Sample ID</th>
@@ -1210,15 +1484,34 @@ export function RecordsPage() {
               </div>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap items-center">
+            <button
+              type="button"
+              onClick={() => {
+                const nextState = !filterPresentMonthOnly;
+                setFilterPresentMonthOnly(nextState);
+                if (nextState) {
+                  setFilterDateBasis('pull');
+                  setFilterDatePreset('present_month');
+                } else {
+                  setFilterDatePreset('all');
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border text-xs font-semibold shadow-xs transition duration-200 cursor-pointer whitespace-nowrap ${filterPresentMonthOnly || filterDatePreset === 'present_month'
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/30'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/70'
+                }`}
+              title="Filter samples with tests due in present month according to charging date"
+            >
+              📅 Present Month Tests ({presentMonthName})
+            </button>
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-xs font-semibold shadow-xs transition duration-200 cursor-pointer whitespace-nowrap ${
-                showFilters
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-xs font-semibold shadow-xs transition duration-200 cursor-pointer whitespace-nowrap ${showFilters
                   ? 'bg-slate-900 dark:bg-slate-700 border-slate-900 dark:border-slate-600 text-white'
                   : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
+                }`}
             >
               ⚙️ {showFilters ? 'Hide Filters' : 'Show Filters'}
             </button>
@@ -1237,7 +1530,73 @@ export function RecordsPage() {
         {showFilters && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs animate-menu-fade">
             <div className="space-y-1">
-              <label className="block font-semibold text-slate-600">Status</label>
+              <label className="block font-semibold text-slate-600">Date Target (Basis)</label>
+              <select
+                value={filterDateBasis}
+                onChange={(e) => setFilterDateBasis(e.target.value as any)}
+                className="w-full rounded-lg border-slate-300 shadow-2xs py-2 px-3 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 bg-white transition duration-150 font-medium"
+              >
+                <option value="charging">Charging Date</option>
+                <option value="pull">Target Pull Date (Due Date)</option>
+                <option value="mfg">Manufacturing Date</option>
+                <option value="exp font-medium">Expiry Date</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block font-semibold text-slate-600">Date Preset</label>
+              <select
+                value={filterPresentMonthOnly ? 'present_month' : filterDatePreset}
+                onChange={(e) => {
+                  const val = e.target.value as any;
+                  setFilterDatePreset(val);
+                  if (val === 'present_month') {
+                    setFilterPresentMonthOnly(true);
+                  } else {
+                    setFilterPresentMonthOnly(false);
+                  }
+                }}
+                className="w-full rounded-lg border-slate-300 shadow-2xs py-2 px-3 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 bg-white transition duration-150 font-medium"
+              >
+                <option value="all">All Dates</option>
+                <option value="present_month">📅 Present Month (This Month)</option>
+                <option value="today">Today</option>
+                <option value="this_quarter">This Quarter</option>
+                <option value="this_year">This Year</option>
+                <option value="custom">Custom Date Range...</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block font-semibold text-slate-600">From Date</label>
+              <input
+                type="date"
+                value={effectiveStartDate}
+                onChange={(e) => {
+                  setFilterStartDate(e.target.value);
+                  setFilterDatePreset('custom');
+                  setFilterPresentMonthOnly(false);
+                }}
+                className="w-full rounded-lg border border-slate-300 py-1.5 px-3 bg-white"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="block font-semibold text-slate-600">To Date</label>
+              <input
+                type="date"
+                value={effectiveEndDate}
+                onChange={(e) => {
+                  setFilterEndDate(e.target.value);
+                  setFilterDatePreset('custom');
+                  setFilterPresentMonthOnly(false);
+                }}
+                className="w-full rounded-lg border border-slate-300 py-1.5 px-3 bg-white"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="block font-semibold text-slate-600 font-medium">Status</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -1292,7 +1651,7 @@ export function RecordsPage() {
                 className="w-full rounded-lg border-slate-300 shadow-2xs py-2 px-3 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 bg-white transition duration-150"
               >
                 <option value="">All Intervals</option>
-                {[3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36].map((i) => (
+                {[1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36].map((i) => (
                   <option key={i} value={i}>
                     Month {i}
                   </option>
@@ -1406,6 +1765,20 @@ export function RecordsPage() {
           </p>
         </div>
 
+        {(filterPresentMonthOnly || filterDatePreset === 'present_month') && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-emerald-500 p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200 no-print">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📅</span>
+              <div>
+                <span className="font-bold">Present Month Filter Active ({presentMonthName}):</span> Showing stability samples with tests scheduled for pulling in <span className="font-extrabold underline">{presentMonthName}</span> based on their charging date (`chargingDate + interval`).
+              </div>
+            </div>
+            <div className="font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-800 px-3 py-1 rounded-md border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+              {sortedSamples.length} Samples Matched
+            </div>
+          </div>
+        )}
+
         {filterInterval ? (
           <div className="space-y-8 p-6">
             {/* 1. Currently Due for Testing */}
@@ -1457,7 +1830,7 @@ export function RecordsPage() {
           <>
             <div className="table-container max-h-[600px] overflow-y-auto">
               <table className="table-admin">
-                <thead className="sticky top-0 z-10 select-none">
+                <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-2xs">
                   <tr>
                     <th className="px-4 py-3.5">S.N.</th>
                     <th
@@ -1522,51 +1895,56 @@ export function RecordsPage() {
                       </td>
                     </tr>
                   )}
-                  {paginatedSamples.map((s, index) => (
-                    <tr
-                      key={s._id}
-                      onClick={() => setSelectedSample(s)}
-                      className="hover:bg-slate-50/90 dark:hover:bg-slate-800/70 hover:translate-x-0.5 hover:shadow-2xs transition-all duration-200 cursor-pointer odd:bg-slate-50/20 dark:odd:bg-slate-800/30"
-                    >
-                      <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                        {(currentPage - 1) * itemsPerPage + index + 1}
-                      </td>
-                      <td className="px-4 py-3.5 font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                        {s.sampleCode}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
-                        {s.product?.category || '—'}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">
-                          {s.product?.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-mono">
-                          {s.product?.code}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap font-medium">
-                        {(s.batch as any)?.batchNo || s.batch?.batchCode || '—'}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
-                        {s.stabilityType}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 italic">
-                        {s.product?.storageConditions || '—'}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
-                        {formatDD_MM_YYYY(s.chargingDate)}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
-                        {formatMMM_YYYY(s.expiryDate)}
-                      </td>
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${statusColors[s.status]}`}
-                        >
-                          {s.status}
-                        </span>
-                      </td>
+                  {paginatedSamples.map((s, index) => {
+                    const isCompleted = isSampleFullyCompleted(s);
+                    const effectiveStatus = isCompleted ? 'completed' : s.status;
+                    const rowBgClass = isCompleted
+                      ? 'bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/60 border-l-4 border-emerald-500 hover:translate-x-0.5 hover:shadow-2xs transition-all duration-200 cursor-pointer'
+                      : index % 2 === 0
+                        ? 'bg-white dark:bg-slate-900 hover:bg-slate-50/90 dark:hover:bg-slate-800/70 hover:translate-x-0.5 hover:shadow-2xs transition-all duration-200 cursor-pointer'
+                        : 'bg-slate-50/30 dark:bg-slate-800/20 hover:bg-slate-50/90 dark:hover:bg-slate-800/70 hover:translate-x-0.5 hover:shadow-2xs transition-all duration-200 cursor-pointer';
+
+                    return (
+                      <tr key={s._id} onClick={() => setSelectedSample(s)} className={rowBgClass}>
+                        <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                          {(currentPage - 1) * itemsPerPage + index + 1}
+                        </td>
+                        <td className="px-4 py-3.5 font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                          {s.sampleCode}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
+                          {s.product?.category || '—'}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="font-semibold text-slate-800 dark:text-slate-200">
+                            {s.product?.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-mono">
+                            {s.product?.code}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap font-medium">
+                          {(s.batch as any)?.batchNo || s.batch?.batchCode || '—'}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                          {s.stabilityType}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 italic">
+                          {s.product?.storageConditions || '—'}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
+                          {formatDD_MM_YYYY(s.chargingDate)}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 whitespace-nowrap font-medium">
+                          {formatMMM_YYYY(s.expiryDate)}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${statusColors[effectiveStatus]}`}
+                          >
+                            {effectiveStatus}
+                          </span>
+                        </td>
                       <td
                         className="px-4 py-3.5 text-right whitespace-nowrap no-print"
                         onClick={(e) => e.stopPropagation()}
@@ -1591,7 +1969,8 @@ export function RecordsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             </div>
@@ -1653,17 +2032,31 @@ export function RecordsPage() {
         createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto no-print">
             <div className="relative w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col animate-menu-fade text-slate-900 dark:text-slate-100">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex-wrap gap-2">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   Study Detail Card: {selectedSample.sampleCode}
                 </h2>
-                <button
-                  type="button"
-                  onClick={() => setSelectedSample(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-extrabold text-sm"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sampleId = selectedSample._id;
+                      setSelectedSample(null);
+                      navigate(`/samples/${sampleId}`);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-2xs transition cursor-pointer flex items-center gap-1.5"
+                    title="Open Full Study Protocol Page"
+                  >
+                    📄 Open Study Protocol →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSample(null)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-extrabold text-sm ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -1711,12 +2104,30 @@ export function RecordsPage() {
                 </div>
 
                 <div>
+                  <span className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                    Charging Date
+                  </span>
+                  <span className="font-extrabold text-emerald-700 dark:text-emerald-300 text-sm">
+                    {formatDD_MM_YYYY(selectedSample.chargingDate)}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium">
+                    Mfg Date
+                  </span>
+                  <span className="font-medium text-slate-900 dark:text-white">
+                    {formatMMM_YYYY(selectedSample.manufacturingDate)}
+                  </span>
+                </div>
+
+                <div>
                   <span className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium">
                     Expiry Date
                   </span>
                   <span className="font-medium text-slate-900 dark:text-white">
                     {selectedSample.expiryDate
-                      ? new Date(selectedSample.expiryDate).toLocaleDateString()
+                      ? formatMMM_YYYY(selectedSample.expiryDate)
                       : 'N/A'}
                   </span>
                 </div>
@@ -1851,15 +2262,14 @@ export function RecordsPage() {
                             <div className="font-bold text-xs border-b border-slate-700/50 pb-1.5 mb-1.5 flex justify-between items-center">
                               <span>Month {month} Schedule</span>
                               <span
-                                className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase ${
-                                  status === 'completed'
+                                className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase ${status === 'completed'
                                     ? 'bg-emerald-500/20 text-emerald-300'
                                     : isPast
                                       ? 'bg-rose-500/20 text-rose-300'
                                       : status === 'in_progress'
                                         ? 'bg-blue-500/20 text-blue-300'
                                         : 'bg-slate-500/20 text-slate-300'
-                                }`}
+                                  }`}
                               >
                                 {statusText}
                               </span>
@@ -1891,25 +2301,38 @@ export function RecordsPage() {
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
-                    document.body.classList.add('print-card-mode');
-                    window.print();
-                    document.body.classList.remove('print-card-mode');
+                    const sampleId = selectedSample._id;
+                    setSelectedSample(null);
+                    navigate(`/samples/${sampleId}`);
                   }}
-                  className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs shadow-xs cursor-pointer"
+                  className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-3.5 py-2 font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-xs shadow-2xs transition cursor-pointer"
                 >
-                  🖨️ Print Card
+                  📄 Open Study Protocol →
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedSample(null)}
-                  className="rounded-md bg-slate-900 dark:bg-slate-100 px-4 py-2 font-semibold text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 text-xs cursor-pointer"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.body.classList.add('print-card-mode');
+                      window.print();
+                      document.body.classList.remove('print-card-mode');
+                    }}
+                    className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs shadow-xs cursor-pointer"
+                  >
+                    🖨️ Print Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSample(null)}
+                    className="rounded-md bg-slate-900 dark:bg-slate-100 px-4 py-2 font-semibold text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 text-xs cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>,
@@ -1942,9 +2365,22 @@ export function RecordsPage() {
                   <select
                     id="e-status"
                     value={editForm.status}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, status: e.target.value as Sample['status'] }))
-                    }
+                    onChange={(e) => {
+                      const newStatus = e.target.value as Sample['status'];
+                      if (
+                        newStatus === 'completed' &&
+                        editingSample &&
+                        !isSampleFullyCompleted(editingSample)
+                      ) {
+                        setShowValidationErrorModal(true);
+                        setEditForm((f) => ({
+                          ...f,
+                          status: editingSample.status === 'completed' ? 'completed' : 'running',
+                        }));
+                        return;
+                      }
+                      setEditForm((f) => ({ ...f, status: newStatus }));
+                    }}
                     className={inputClass}
                   >
                     {SAMPLE_STATUSES.map((s) => (
@@ -2361,6 +2797,42 @@ export function RecordsPage() {
           </div>
         </div>
       )}
+      {/* Validation Error Modal */}
+      {showValidationErrorModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto no-print">
+            <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col text-left space-y-4 animate-menu-fade">
+              <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-xl">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Cannot mark this test as Completed
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Completion requirements not fulfilled.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
+                Required testing is still incomplete. Please complete all required month-wise tests and ensure all required results are successful before marking the sample as Completed.
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowValidationErrorModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs hover:bg-slate-800 dark:hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Understood
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

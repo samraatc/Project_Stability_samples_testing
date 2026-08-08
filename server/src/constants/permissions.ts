@@ -135,8 +135,14 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
   },
 ];
 
-/** ICH-style stability pull points (months), per the master document. */
-export const STABILITY_INTERVAL_MONTHS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36] as const;
+/** ICH-style stability pull points (months), including accelerated and long-term extended intervals. */
+export const STABILITY_INTERVAL_MONTHS = [1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 42, 48, 54, 60] as const;
+
+export const DEFAULT_INTERVALS_BY_TYPE: Record<string, number[]> = {
+  'long-term': [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
+  'intermediate': [3, 6, 9, 12],
+  'accelerated': [1, 2, 3, 6],
+};
 
 export const STABILITY_TYPES = ['long-term', 'accelerated', 'intermediate'] as const;
 export type StabilityType = (typeof STABILITY_TYPES)[number];

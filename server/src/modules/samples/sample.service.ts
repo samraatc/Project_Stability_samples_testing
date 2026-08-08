@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { AppError } from '../../utils/app-error';
+import { DEFAULT_INTERVALS_BY_TYPE } from '../../constants/permissions';
 import { StabilitySampleModel, type IStabilitySample } from './sample.model';
 import { BatchModel } from '../batches/batch.model';
 import { ProductModel } from '../products/product.model';
@@ -46,6 +47,12 @@ export async function createSample(
     throw new AppError('A sample with this code already exists', 409);
   }
 
+  const rawIntervals =
+    input.intervals && input.intervals.length > 0
+      ? input.intervals
+      : DEFAULT_INTERVALS_BY_TYPE[input.stabilityType] || [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
+  const sortedIntervals = Array.from(new Set(rawIntervals)).sort((a, b) => a - b);
+
   return StabilitySampleModel.create({
     sampleCode,
     product: product._id,
@@ -56,7 +63,7 @@ export async function createSample(
     expiryDate: input.expiryDate ?? null,
     chargingDate: input.chargingDate,
     quantity: input.quantity,
-    intervals: [...input.intervals].sort((a, b) => a - b),
+    intervals: sortedIntervals,
     remarks: input.remarks,
     createdBy: actorId,
   });
@@ -76,5 +83,18 @@ export async function cloneSample(id: string, actorId: Types.ObjectId): Promise<
     updatedBy: null,
     createdAt: undefined,
     updatedAt: undefined,
+  });
+}
+
+export function isTestingComplete(sample: {
+  intervals?: number[];
+  intervalTests?: Array<{ interval: number; status: string }>;
+}): boolean {
+  if (!sample.intervals || sample.intervals.length === 0) return false;
+  if (!sample.intervalTests || sample.intervalTests.length === 0) return false;
+
+  return sample.intervals.every((month) => {
+    const test = sample.intervalTests!.find((t) => t.interval === month);
+    return Boolean(test && test.status === 'completed');
   });
 }

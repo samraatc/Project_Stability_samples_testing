@@ -5,9 +5,8 @@ import { listQuerySchema, objectIdSchema } from '../../utils/crud';
 const intervalSchema = z
   .number()
   .int()
-  .refine((v) => (STABILITY_INTERVAL_MONTHS as readonly number[]).includes(v), {
-    message: 'Intervals must be one of the standard pull points (3-36 months, step 3)',
-  });
+  .min(1, 'Interval month must be at least 1')
+  .max(120, 'Interval month cannot exceed 120');
 
 export const createSampleSchema = z
   .object({
@@ -32,7 +31,7 @@ export const createSampleSchema = z
     intervals: z
       .array(intervalSchema)
       .min(1, 'At least one interval is required')
-      .default([...STABILITY_INTERVAL_MONTHS]),
+      .optional(),
     remarks: z.string().max(2000).default(''),
   })
   .superRefine((v, ctx) => {
@@ -67,8 +66,14 @@ export const listSamplesSchema = listQuerySchema.extend({
   chamber: z.string().trim().optional(),
   interval: z.coerce.number().int().positive().optional(),
   mfgDate: z.string().trim().optional(),
+  mfgDateFrom: z.string().trim().optional(),
+  mfgDateTo: z.string().trim().optional(),
   expDate: z.string().trim().optional(),
+  expDateFrom: z.string().trim().optional(),
+  expDateTo: z.string().trim().optional(),
   chargeDate: z.string().trim().optional(),
+  chargeDateFrom: z.string().trim().optional(),
+  chargeDateTo: z.string().trim().optional(),
   sampleId: z.string().trim().optional(),
   prodCode: z.string().trim().optional(),
   batchCode: z.string().trim().optional(),

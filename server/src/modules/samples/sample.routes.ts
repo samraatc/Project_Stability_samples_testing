@@ -9,7 +9,7 @@ import { escapeRegex, paginated, parseQuery } from '../../utils/query';
 import { auditFrom, actorIdOf } from '../../utils/crud';
 import { PERMISSIONS } from '../../constants/permissions';
 import { StabilitySampleModel } from './sample.model';
-import { cloneSample, createSample } from './sample.service';
+import { cloneSample, createSample, isTestingComplete } from './sample.service';
 import {
   createSampleSchema,
   listSamplesSchema,
@@ -71,21 +71,48 @@ samplesRouter.get(
       matchStage.intervals = query.interval;
     }
 
-    if (query.mfgDate) {
+    if (query.mfgDateFrom || query.mfgDateTo) {
+      const filter: Record<string, Date> = {};
+      if (query.mfgDateFrom) filter.$gte = new Date(query.mfgDateFrom);
+      if (query.mfgDateTo) {
+        const end = new Date(query.mfgDateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.$lte = end;
+      }
+      matchStage.manufacturingDate = filter;
+    } else if (query.mfgDate) {
       const start = new Date(query.mfgDate);
       const end = new Date(query.mfgDate);
       end.setDate(end.getDate() + 1);
       matchStage.manufacturingDate = { $gte: start, $lt: end };
     }
 
-    if (query.expDate) {
+    if (query.expDateFrom || query.expDateTo) {
+      const filter: Record<string, Date> = {};
+      if (query.expDateFrom) filter.$gte = new Date(query.expDateFrom);
+      if (query.expDateTo) {
+        const end = new Date(query.expDateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.$lte = end;
+      }
+      matchStage.expiryDate = filter;
+    } else if (query.expDate) {
       const start = new Date(query.expDate);
       const end = new Date(query.expDate);
       end.setDate(end.getDate() + 1);
       matchStage.expiryDate = { $gte: start, $lt: end };
     }
 
-    if (query.chargeDate) {
+    if (query.chargeDateFrom || query.chargeDateTo) {
+      const filter: Record<string, Date> = {};
+      if (query.chargeDateFrom) filter.$gte = new Date(query.chargeDateFrom);
+      if (query.chargeDateTo) {
+        const end = new Date(query.chargeDateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.$lte = end;
+      }
+      matchStage.chargingDate = filter;
+    } else if (query.chargeDate) {
       const start = new Date(query.chargeDate);
       const end = new Date(query.chargeDate);
       end.setDate(end.getDate() + 1);
@@ -185,15 +212,20 @@ samplesRouter.get(
     const items = await StabilitySampleModel.aggregate(pipeline).exec();
 
     // Map output to match Mongoose ref population layout expected by client
-    const mappedItems = items.map((item) => ({
-      ...item,
-      product: item.productInfo || null,
-      batch: item.batchInfo || null,
-      section: item.sectionInfo || null,
-      productInfo: undefined,
-      batchInfo: undefined,
-      sectionInfo: undefined,
-    }));
+    const mappedItems = items.map((item) => {
+      const isCompleted = isTestingComplete(item);
+      const effectiveStatus = isCompleted ? 'completed' : item.status;
+      return {
+        ...item,
+        status: effectiveStatus,
+        product: item.productInfo || null,
+        batch: item.batchInfo || null,
+        section: item.sectionInfo || null,
+        productInfo: undefined,
+        batchInfo: undefined,
+        sectionInfo: undefined,
+      };
+    });
 
     res.json({ success: true, data: paginated(mappedItems, total, query.page, query.limit) });
   },
@@ -209,6 +241,9 @@ samplesRouter.get(
       .populate('section', 'name')
       .lean();
     if (!sample) throw new AppError('Sample not found', 404);
+    if (isTestingComplete(sample as any)) {
+      (sample as any).status = 'completed';
+    }
     res.json({ success: true, data: sample });
   },
 );
@@ -255,7 +290,27 @@ samplesRouter.patch(
   validate(updateSampleSchema),
   async (req: Request, res: Response) => {
     const sample = await loadSample(req.params.id as string);
-    Object.assign(sample, req.body as UpdateSampleInput, { updatedBy: actorIdOf(req) });
+    const input = req.body as UpdateSampleInput;
+
+    if (input.status === 'completed') {
+      if (!isTestingComplete(sample)) {
+        throw new AppError(
+          'Cannot mark this test as Completed. Required testing is still incomplete. Please complete all required month-wise tests and ensure all required results are successful before marking the sample as Completed.',
+          400,
+        );
+      }
+    }
+
+    Object.assign(sample, input, { updatedBy: actorIdOf(req) });
+
+    if (input.status === undefined) {
+      if (isTestingComplete(sample)) {
+        sample.status = 'completed';
+      } else if (sample.status === 'completed') {
+        sample.status = 'running';
+      }
+    }
+
     await sample.save();
     auditFrom(req, 'samples.update', 'samples', sample._id.toString(), { ...req.body });
     res.json({ success: true, data: sample });
@@ -305,6 +360,13 @@ samplesRouter.patch(
     }
     if (reportName !== undefined) test.reportName = reportName;
     if (reportData !== undefined) test.reportData = reportData;
+
+    // Auto-check if all intervals are completed
+    if (isTestingComplete(sample)) {
+      sample.status = 'completed';
+    } else if (sample.status === 'completed') {
+      sample.status = 'running';
+    }
 
     sample.updatedBy = actorIdOf(req);
     sample.markModified('intervalTests');
