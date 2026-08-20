@@ -95,7 +95,7 @@ export function SampleDetailPage() {
     const headers = [
       'Category',
       'Name of the Product',
-      'Batch No',
+      'Batch Code',
       'Quantity',
       'Mfg Date',
       'Exp Date',
@@ -180,7 +180,7 @@ export function SampleDetailPage() {
     const row = [
       escapeCSVCell(product?.category || ''),
       escapeCSVCell(product?.name || ''),
-      escapeCSVCell(batch?.batchNo || batch?.batchCode || ''),
+      escapeCSVCell(batch?.batchCode || (batch as any)?.batchNo || ''),
       escapeCSVCell(sample.quantity),
       escapeCSVCell(formatMMM_YYYY(sample.manufacturingDate)),
       escapeCSVCell(formatMMM_YYYY(sample.expiryDate)),
@@ -464,14 +464,14 @@ export function SampleDetailPage() {
                     {product.strength || '—'}
                   </span>
                 </div>
-                <div className="sm:col-span-2">
+                {/* <div className="sm:col-span-2">
                   <span className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                     Chamber Conditions
                   </span>
                   <span className="text-sm text-slate-755 dark:text-slate-300 font-semibold">
                     {product.storageConditions || '—'}
                   </span>
-                </div>
+                </div> */}
                 <div className="sm:col-span-2">
                   <span className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                     Description

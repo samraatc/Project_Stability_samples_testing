@@ -26,6 +26,7 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -144,6 +145,22 @@ export function LoginPage() {
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+          <p className="text-[11px] text-slate-400 font-medium">Default System Credentials:</p>
+          <div className="mt-1.5 flex flex-col gap-1 items-center">
+            <button
+              type="button"
+              onClick={() => {
+                setValue('email', 'admin@nesms.com');
+                setValue('password', '#Admin1550');
+              }}
+              className="text-[11px] font-mono font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+            >
+              🔑 Click to fill Admin: admin@nesms.com
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );

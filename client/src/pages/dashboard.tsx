@@ -666,7 +666,7 @@ export function DashboardPage() {
     }));
   }, [samples]);
 
-  // Recharts: Storage chamber radar/pie chart
+  /* Recharts: Storage chamber radar/pie chart -- Disabled per Storage/Chamber requirement
   const chamberPieData = useMemo(() => {
     const counts: Record<string, number> = {};
     samples.forEach((s) => {
@@ -679,7 +679,7 @@ export function DashboardPage() {
       value,
       color: colors[idx % colors.length],
     }));
-  }, [samples]);
+  }, [samples]); */
 
   // Recharts: Analyst logs productivity (activities per user)
   const analystChartData = useMemo(() => {
@@ -797,8 +797,7 @@ export function DashboardPage() {
             {/* <Sparkles size={18} className="text-blue-500 animate-pulse" /> */}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time tracking of stability protocols, chamber spreads, test schedules, and
-            laboratory audits.
+            Real-time tracking of stability protocols, test schedules, and laboratory audits.
           </p>
         </div>
 
@@ -1415,7 +1414,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Storage Conditions Distribution */}
+          {/* Storage Conditions Distribution -- Hidden per requirement
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col h-80">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
               Storage Chamber Conditions
@@ -1455,7 +1454,7 @@ export function DashboardPage() {
                 </ResponsiveContainer>
               )}
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -1613,6 +1612,17 @@ export function DashboardPage() {
               </h2>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => {
+                    const t = new Date();
+                    setCalendarDate(t);
+                    setSelectedCalendarDay(t.getDate());
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 border border-blue-200 dark:border-blue-800 transition"
+                  title="Jump to today"
+                >
+                  Today
+                </button>
+                <button
                   onClick={handlePrevMonth}
                   className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                 >
@@ -1650,18 +1660,32 @@ export function DashboardPage() {
 
                 const dayPulls = getPullsOnDay(day);
                 const isSelected = selectedCalendarDay === day;
+                const sysNow = new Date();
+                const isToday =
+                  sysNow.getDate() === day &&
+                  sysNow.getMonth() === calendarDate.getMonth() &&
+                  sysNow.getFullYear() === calendarDate.getFullYear();
 
                 return (
                   <button
                     key={`day-${day}`}
                     onClick={() => setSelectedCalendarDay(isSelected ? null : day)}
-                    className={`dashboard-calendar-day relative border cursor-pointer hover:border-blue-500/50 ${
+                    className={`dashboard-calendar-day relative border cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-blue-500 border-blue-600 text-white shadow-md shadow-blue-500/10'
-                        : 'bg-slate-50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                        ? 'bg-blue-600 border-blue-700 text-white shadow-md shadow-blue-500/20 font-bold'
+                        : isToday
+                          ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-500 dark:border-blue-400 text-blue-700 dark:text-blue-300 font-extrabold ring-2 ring-blue-500/40 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
                     }`}
                   >
-                    <span className="font-bold">{day}</span>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={isToday ? 'font-black underline decoration-blue-500 decoration-2' : 'font-bold'}>
+                        {day}
+                      </span>
+                      {isToday && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" title="Current Date (Today)" />
+                      )}
+                    </div>
                     {dayPulls.length > 0 && (
                       <div className="flex gap-0.5 justify-center mt-1">
                         {dayPulls.slice(0, 3).map((p, pIdx) => (

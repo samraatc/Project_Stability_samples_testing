@@ -153,7 +153,7 @@ export function ProductsPage() {
               ['code', 'Product Code'],
               ['dosageForm', 'Dosage Form'],
               ['strength', 'Strength'],
-              ['storageConditions', 'Storage Conditions'],
+              /* ['storageConditions', 'Storage Conditions'], -- Disabled per Storage/Chamber Conditions UI requirement */
             ] as const
           ).map(([field, label]) => (
             <div key={field}>
@@ -225,21 +225,21 @@ export function ProductsPage() {
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Dosage Form</th>
               <th className="px-4 py-3">Strength</th>
-              <th className="px-4 py-3">Storage Conditions</th>
+              {/* <th className="px-4 py-3">Storage Conditions</th> */}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {query.isLoading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
                   Loading product items…
                 </td>
               </tr>
             )}
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
                   No products registered.
                 </td>
               </tr>
@@ -324,7 +324,7 @@ export function ProductsPage() {
                     p.strength || '—'
                   )}
                 </td>
-                <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                {/* <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
                   {editingId === p._id ? (
                     <input
                       value={editForm.storageConditions}
@@ -336,7 +336,7 @@ export function ProductsPage() {
                   ) : (
                     p.storageConditions || '—'
                   )}
-                </td>
+                </td> */}
                 <td className="px-4 py-3 text-right">
                   {editingId === p._id ? (
                     <div className="flex justify-end gap-2">

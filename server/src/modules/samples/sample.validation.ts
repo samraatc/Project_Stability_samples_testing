@@ -49,6 +49,18 @@ export const createSampleSchema = z
         message: 'Charging date cannot be before the manufacturing date',
       });
     }
+    if (v.intervals) {
+      const invalid = v.intervals.filter(
+        (m) => !(STABILITY_INTERVAL_MONTHS as readonly number[]).includes(m),
+      );
+      if (invalid.length > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['intervals'],
+          message: `Intervals must be standard pull points: ${STABILITY_INTERVAL_MONTHS.join(', ')}`,
+        });
+      }
+    }
   });
 
 export const updateSampleSchema = z.object({

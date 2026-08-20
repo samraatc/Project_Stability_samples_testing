@@ -14,6 +14,7 @@ coverage/
 # Logs
 logs/
 *.log
+logs.txt
 npm-debug.log*
 
 # OS / Editor
@@ -22,7 +23,12 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Local tooling
+# Local tooling & AI development context
 .claude/
+.gemini/
+.antigravity/
+scratch/
+PROJECT_MEMORY.md
+ESMS_FINAL_MASTER_DOCUMENT.md
 
 .vercel

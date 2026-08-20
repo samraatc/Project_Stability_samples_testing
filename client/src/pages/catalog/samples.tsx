@@ -242,7 +242,7 @@ export function SamplesPage() {
       <PageHeader
         title="Stability Studies Database"
         count={query.data?.total}
-        description="Comprehensive list of all registered stability test samples and running chambers."
+        description="Comprehensive list of all registered stability test samples and pull protocols."
         actions={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none">

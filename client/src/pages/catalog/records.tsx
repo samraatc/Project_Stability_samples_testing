@@ -284,10 +284,10 @@ export function RecordsPage() {
     }
   }, [openCardParam, sampleIdParam, sampleCodeParam, samplesQuery.data]);
 
-  const productsQuery = useQuery({
+  /* const productsQuery = useQuery({
     queryKey: ['products', 'records-chambers'],
     queryFn: () => catalogApi.products.list({ limit: 1000 }),
-  });
+  }); */
 
   const suggestionsQuery = useQuery({
     queryKey: ['samples', 'suggestions', searchTerm],
@@ -353,7 +353,7 @@ export function RecordsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Unique Chambers for filtering options
+  /* Unique Chambers for filtering options -- Disabled per Storage/Chamber requirement
   const uniqueChambers = useMemo(() => {
     const chambers: string[] = [];
     const products = productsQuery.data?.items || [];
@@ -364,7 +364,7 @@ export function RecordsPage() {
       }
     });
     return chambers;
-  }, [productsQuery.data]);
+  }, [productsQuery.data]); */
 
   // Helper to check target pull dates for a sample within date range
   const getSamplePullDatesInRange = (
@@ -622,12 +622,12 @@ export function RecordsPage() {
         label: `Condition: ${filterType}`,
         reset: () => setFilterType(''),
       });
-    if (filterChamber)
+    /* if (filterChamber)
       chips.push({
         key: 'chamber',
         label: `Chamber: ${filterChamber}`,
         reset: () => setFilterChamber(''),
-      });
+      }); */
     if (filterInterval)
       chips.push({
         key: 'interval',
@@ -755,7 +755,7 @@ export function RecordsPage() {
       const headers = [
         'Category',
         'Name of the Product',
-        'Batch No',
+        'Batch Code',
         'Quantity',
         'Mfg Date',
         'Exp Date',
@@ -799,7 +799,7 @@ export function RecordsPage() {
         const row = [
           s.product?.category || '',
           s.product?.name || '',
-          (s.batch as any)?.batchNo || s.batch?.batchCode || '',
+          s.batch?.batchCode || (s.batch as any)?.batchNo || '',
           s.quantity,
           formatMMM_YYYY(s.manufacturingDate),
           formatMMM_YYYY(s.expiryDate),
@@ -848,26 +848,25 @@ export function RecordsPage() {
 
       allRowValues.forEach((row) => {
         xmlContent += `   <Row ss:Height="20">\n`;
-        row.forEach((val) => {
-          const isNum = typeof val === 'number';
-          const type = isNum ? 'Number' : 'String';
-          xmlContent += `    <Cell><Data ss:Type="${type}">${escapeXML(val)}</Data></Cell>\n`;
+        row.forEach((v) => {
+          xmlContent += `    <Cell><Data ss:Type="String">${escapeXML(v)}</Data></Cell>\n`;
         });
         xmlContent += `   </Row>\n`;
       });
 
       xmlContent += `  </Table>\n </Worksheet>\n</Workbook>`;
 
-      const blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Stability_Study_Records.xls`);
+      link.setAttribute('download', `Stability_Study_Report_${new Date().toISOString().slice(0, 10)}.xls`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err) {
-      setActionError(apiErrorMessage(err));
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to export Excel report');
     }
   };
 
@@ -903,7 +902,7 @@ export function RecordsPage() {
       const headers = [
         'Category',
         'Name of the Product',
-        'Batch No',
+        'Batch Code',
         'Quantity',
         'Mfg Date',
         'Exp Date',
@@ -948,7 +947,7 @@ export function RecordsPage() {
         const row = [
           escapeCSVCell(s.product?.category || ''),
           escapeCSVCell(s.product?.name || ''),
-          escapeCSVCell((s.batch as any)?.batchNo || s.batch?.batchCode || ''),
+          escapeCSVCell(s.batch?.batchCode || (s.batch as any)?.batchNo || ''),
           escapeCSVCell(s.quantity),
           escapeCSVCell(formatMMM_YYYY(s.manufacturingDate)),
           escapeCSVCell(formatMMM_YYYY(s.expiryDate)),
@@ -1106,7 +1105,7 @@ export function RecordsPage() {
               <th className="px-4 py-3.5">Category</th>
               <th className="px-4 py-3.5">Product</th>
               <th className="px-4 py-3.5">Batch No</th>
-              <th className="px-4 py-3.5">Chamber Conditions</th>
+              {/* <th className="px-4 py-3.5">Chamber Conditions</th> */}
               <th className="px-4 py-3.5">Charging Date</th>
               <th className="px-4 py-3.5">Target Pull Date</th>
               {isTestedSection && <th className="px-4 py-3.5">Tested Date</th>}
@@ -1118,7 +1117,7 @@ export function RecordsPage() {
             {samplesList.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isTestedSection ? 11 : 10}
+                  colSpan={isTestedSection ? 10 : 9}
                   className="px-4 py-8 text-center text-slate-400 font-medium italic"
                 >
                   No samples in this section.
@@ -1153,9 +1152,9 @@ export function RecordsPage() {
                     <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap font-medium">
                       {(s.batch as any)?.batchNo || s.batch?.batchCode || '—'}
                     </td>
-                    <td className="px-4 py-3.5 text-slate-600 italic">
+                    {/* <td className="px-4 py-3.5 text-slate-600 italic">
                       {s.product?.storageConditions || '—'}
-                    </td>
+                    </td> */}
                     <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap font-medium">
                       {formatDD_MM_YYYY(s.chargingDate)}
                     </td>
@@ -1627,7 +1626,7 @@ export function RecordsPage() {
               </select>
             </div>
 
-            <div className="space-y-1">
+            {/* <div className="space-y-1">
               <label className="block font-semibold text-slate-600">Chamber/Condition</label>
               <select
                 value={filterChamber}
@@ -1641,7 +1640,7 @@ export function RecordsPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </div> */}
 
             <div className="space-y-1">
               <label className="block font-semibold text-slate-600">Testing Interval</label>
@@ -1856,7 +1855,7 @@ export function RecordsPage() {
                       {sortField === 'batchCode' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
                     </th>
                     <th className="px-4 py-3.5">Stability Type</th>
-                    <th className="px-4 py-3.5">Chamber Conditions</th>
+                    {/* <th className="px-4 py-3.5">Chamber Conditions</th> */}
                     <th
                       onClick={() => handleSort('chargingDate')}
                       className="px-4 py-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-950 dark:hover:text-white transition whitespace-nowrap"
@@ -1883,14 +1882,14 @@ export function RecordsPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                   {samplesQuery.isLoading && (
                     <tr>
-                      <td colSpan={11} className="px-4 py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={10} className="px-4 py-8 text-center text-slate-400 font-medium">
                         Loading stability records…
                       </td>
                     </tr>
                   )}
                   {!samplesQuery.isLoading && sortedSamples.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="px-4 py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={10} className="px-4 py-8 text-center text-slate-400 font-medium">
                         No stability records matching search criteria.
                       </td>
                     </tr>
@@ -1929,9 +1928,9 @@ export function RecordsPage() {
                         <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
                           {s.stabilityType}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 italic">
+                        {/* <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 italic">
                           {s.product?.storageConditions || '—'}
-                        </td>
+                        </td> */}
                         <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
                           {formatDD_MM_YYYY(s.chargingDate)}
                         </td>
@@ -2132,14 +2131,14 @@ export function RecordsPage() {
                   </span>
                 </div>
 
-                <div>
+                {/* <div>
                   <span className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium">
                     Storage Condition
                   </span>
                   <span className="font-medium text-slate-900 dark:text-white">
                     {selectedSample.product?.storageConditions || '—'}
                   </span>
-                </div>
+                </div> */}
 
                 <div>
                   <span className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium">
@@ -2665,14 +2664,14 @@ export function RecordsPage() {
                 {selectedSample.stabilityType}
               </span>
             </div>
-            <div className="border-b border-slate-100 pb-2">
+            {/* <div className="border-b border-slate-100 pb-2">
               <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wide">
                 Chamber Conditions
               </span>
               <span className="text-xs font-semibold text-slate-800 italic">
                 {selectedSample.product?.storageConditions || '—'}
               </span>
-            </div>
+            </div> */}
 
             <div className="border-b border-slate-100 pb-2">
               <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wide">

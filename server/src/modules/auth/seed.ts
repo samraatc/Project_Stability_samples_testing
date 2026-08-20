@@ -38,6 +38,8 @@ export async function seedSuperAdmin(email: string, password: string): Promise<v
     existingUser.email = normalizedEmail;
     existingUser.passwordHash = passwordHash;
     existingUser.status = 'active';
+    existingUser.failedLoginAttempts = 0;
+    existingUser.lockedUntil = null;
     existingUser.role = role._id;
     existingUser.isDeleted = false;
     await existingUser.save();

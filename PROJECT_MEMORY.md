@@ -1,112 +1,90 @@
-# ESMS Project Memory
+# ESMS Project Memory & Architectural Overview
 
-> Updated after every completed task, per the Continuous Execution Loop in
-> `ESMS_FINAL_MASTER_DOCUMENT.md`.
+> System memory document maintained and updated per development cycle requirements.
 
-## Current Milestone
+## 1. Project Purpose
 
-Phase 8 — Reporting & Dashboard (MERN Enterprise Dashboard & Navigation complete)
+The Enterprise Stability Management System (ESMS) is an enterprise pharmaceutical stability management platform designed for tracking drug stability protocols, pull schedules, testing intervals (3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36 months), batch lifecycle records, and regulatory compliance audit trails.
 
-## Completed Modules
+## 2. Tech Stack
 
-- **MERN Enterprise Dashboard & Navigation (2026-07-19)**:
-  - **Collapsible Navigation Sidebar**: Left-aligned navigation panel with persist-to-localstorage collapsed state, Lucide icons, and nested accordion-style group menus for System Administration routes (Users, Roles, Audit Logs, Backups).
-  - **Sticky Header Navigation**: Dynamic breadcrumbs, global search bar, dark/light theme toggler applying CSS dark variables, live notification bell showing upcoming/overdue pulls, and profile details drop-down.
-  - **Dynamic Dashboard Page**: 10 KPI Cards (running filter redirects on click), 8 Recharts charts (monthly trends, product bar codes, status donuts, radial gauges, and operations charts), and 9 widgets (interactive calendar, operational schedules, audit logs timeline, system health pings, backup creators, and reports).
-  - **Data Export & Toast Alerts**: Client-side CSV/Excel export for filtered data grids, and floating glassmorphic slide-up toast notices.
+- **Monorepo Architecture**: npm Workspaces (`client`, `server`)
+- **Frontend**: React 18, TypeScript, Vite, TailwindCSS, TanStack Query v5, React Router v6, Lucide React, Recharts
+- **Backend**: Node.js (>=20.19.0), Express.js, TypeScript, Mongoose ODM, Zod, JWT (Access/Refresh Tokens), bcrypt, Nodemailer
+- **Database**: MongoDB (Document Store)
+- **Tooling & Quality**: Vitest, Prettier, ESLint, Docker & Docker Compose
 
-- **Phase 1 — Bootstrap (2026-07-13)**: monorepo, tooling, Docker, health
-  module, docs.
-- **Phase 2 — Auth (2026-07-13)**: JWT + rotating refresh tokens,
-  lockout, login history, audit, RBAC/PBAC, seed, client auth flows.
-- **Phase 3 — Super Admin core (2026-07-13)**: user/role management with
-  escalation + last-super-admin guards, audit & login-history APIs, SMTP
-  settings (Nodemailer live when enabled), admin UI.
-- **Phase 4 — Administration core (2026-07-13)**:
-  - **Products**: CRUD + archive/restore + soft delete, unique uppercase
-    codes, search/pagination.
-  - **Sections**: CRUD + archive/restore, unique names.
-  - **Batches**: create/list/delete, per-product duplicate validation
-    (compound unique index), expiry-after-manufacture validation,
-    product populated in listings.
-  - **Stability samples**: register (auto code `STB-<year>-<seq>`),
-    validation (batch-belongs-to-product, date ordering, standard
-    3–36-month intervals), clone, archive/restore, status transitions
-    (registered/running/completed), filtered listings with populated
-    refs.
-  - **Permissions**: 8 new keys (`products|sections|batches|samples` ×
-    `read|manage`) with role assignments (data-entry manages
-    products/batches/samples; QA/QC/viewer read-only; analyst reads
-    products/batches/samples).
-  - **Client**: `/products`, `/sections`, `/batches`, `/samples` pages
-    (search/filters/pagination, create forms, archive/restore, clone,
-    status select; product→batch cascading selects); shared UI helpers
-    (`components/ui.tsx`).
-  - **Tests**: 75 passing (63 server / 12 client); 14 new server domain
-    integration tests + client schema tests.
-  - **Docs**: `docs/administration.md`.
+## 3. Directory & Folder Structure
 
-## Pending Tasks
+```
+├── client/                      # React Frontend Application
+│   ├── src/
+│   │   ├── components/          # AdminLayout, ProtectedRoute, RequirePermission, UI primitives
+│   │   ├── features/            # Feature modules (admin, auth, catalog) with API calls & schemas
+│   │   ├── pages/               # Page views (Dashboard, Products, Batches, Samples, Records, Admin)
+│   │   └── lib/                 # Axios client instance (api.ts) with token refresh interceptors
+├── server/                      # Express Backend REST API
+│   ├── src/
+│   │   ├── config/              # DB connection, env parsing, Swagger docs
+│   │   ├── middlewares/         # Auth, RBAC authorization, Audit logging, Validation, Error handling
+│   │   ├── modules/             # Domain modules (auth, users, roles, products, batches, samples, etc.)
+│   │   └── app.ts & server.ts   # Application entrypoints
+├── docs/                        # Project & Architecture Documentation
+│   ├── architecture/            # Detailed system, frontend, backend, DB, data flow, Excel architecture
+│   ├── admin.md                 # System administration documentation
+│   ├── administration.md        # Core catalog management documentation
+│   └── authentication.md       # Security and RBAC documentation
+├── docker-compose.yml           # Local MongoDB & Node service containerization
+├── package.json                 # Monorepo configuration
+└── PROJECT_MEMORY.md            # System memory (this document)
+```
 
-- Phase 4 deferred: Excel import/export, QR/barcode for batches, sample
-  attachments (needs file management/Cloudinary), product bulk ops.
-- Phase 3 remainder: company/site management, API keys, backups,
-  monitoring; SMTP settings UI page.
-- 2FA (TOTP).
-- Phase 5 (QA/QC workflows) and Phase 7 (scheduler) are the next roadmap
-  milestones; scheduler consumes `samples.intervals`.
+## 4. Core Features
 
-## Known Issues / Bugs
+1. **Authentication & Security**:
+   - Access tokens (15m) + HTTP-only Refresh tokens (7d) with automatic token rotation.
+   - Account lockout after 5 consecutive failed login attempts.
+   - Role-Based Access Control (RBAC) and Permission-Based Access Control (PBAC).
+2. **Catalog Management**:
+   - **Products**: Uppercase unique code, dosage form, strength, category.
+   - **Sections**: Laboratory and manufacturing plant sections.
+   - **Batches**: Per-product unique batch codes (`{ product, batchCode }` compound index), manufacture/expiry date validations.
+   - **Stability Samples**: Protocol registration (`STB-<YEAR>-<SEQ>`), interval tracking, status lifecycle (`registered` -> `running` -> `completed`).
+3. **Enterprise Dashboard**:
+   - Dynamic interactive schedule calendar with **live current date highlighting**.
+   - Operational schedules, KPI metrics cards, Recharts analytical breakdown, system health monitor.
+4. **Excel & Reporting**:
+   - Native Excel XML (`.xls`) and CSV export with horizontal interval pull matrix, explicit **Batch Code** field, and auto-fitted layout.
+   - Excel/CSV import parser with batch code validation and entity resolution.
+5. **System Administration**:
+   - User management, role permission management, audit trail logs timeline, automated database backups.
 
-- None.
+## 5. Database Structure
 
-## Technical Debt
+- **`users`**: System accounts, password hashes, failed attempts, lockout status.
+- **`roles`**: Assigned permission keys matrix (e.g. `products:read`, `samples:manage`).
+- **`products`**: Product catalog (`code` unique, `storageConditions` preserved in DB).
+- **`sections`**: Plant sections (`name` unique).
+- **`batches`**: Batch records (compound unique index `{ product: 1, batchCode: 1 }`).
+- **`stabilitysamples`**: Sample protocols (`sampleCode` unique, status/archive indexes).
+- **`auditlogs`**: Immutable audit trails.
+- **`refreshtokens`**: Active refresh token hashes with reuse detection.
 
-- Sample code generation is count-based (`countDocuments + 1`) — fine at
-  current volume, race-prone under concurrent bulk import; switch to a
-  counter collection when import lands.
-- SMTP password unencrypted at rest (from Phase 3).
-- Domain routes use inline handlers (roles/settings pattern) rather than
-  separate controller files; consistent but revisit if handlers grow.
-- Client fetches product/section dropdowns with `limit: 100` — needs a
-  typeahead once catalogs grow.
+## 6. Business Logic Rules
 
-## Database Changes
+- **Batch Code Uniqueness**: Unique per product (`{ product, batchCode }`), allowing identical batch numbers across distinct products per pharmaceutical standards.
+- **Interval Pull Date Logic**: Pull dates computed relative to `chargingDate` (`chargingDate + interval_months`).
+- **Non-Destructive Field Policy**: Fields disabled from active UI (e.g. Storage Conditions / Chamber Conditions) remain intact in database models to safeguard historical records.
 
-- New collections: `products` (unique `code`), `sections` (unique
-  `name`), `batches` (compound unique `{product, batchCode}`),
-  `stabilitysamples` (unique `sampleCode`; status/archive indexes).
+## 7. Known Dependencies & Integrations
 
-## API Changes
+- **MongoDB / Mongoose**: Primary persistence layer.
+- **Nodemailer**: SMTP email notifications for system alerts.
+- **Recharts**: Data visualization charts on the dashboard.
+- **Vite & Vitest**: Fast compilation and unit/integration testing.
 
-- `/api/v1/products` (GET/POST/PATCH/archive/restore/DELETE),
-  `/api/v1/sections` (GET/POST/PATCH/archive/restore),
-  `/api/v1/batches` (GET/POST/DELETE),
-  `/api/v1/samples` (GET/POST/PATCH/clone/archive/restore/DELETE).
+## 8. Important Implementation Decisions & Recent Updates
 
-## UI Changes
-
-- Four new catalog pages wired into the sidebar with permission gating.
-
-## Decision Log
-
-- (Earlier decisions: see git history of this file.)
-- 2026-07-13: Domain permissions use two keys per entity
-  (`read`/`manage`) instead of four CRUD keys — smaller matrix, adequate
-  granularity for the role model.
-- 2026-07-13: Batch codes unique **per product** (compound index), not
-  globally — matches pharma practice where different products can share
-  batch numbering schemes.
-- 2026-07-13: Sample `intervals` stored on the sample (validated against
-  the standard 3–36 month pull points) so the Phase 7 scheduler can
-  generate per-interval schedules without schema changes.
-- 2026-07-13: Sample statuses limited to registered/running/completed for
-  now; QA approval states arrive with Phase 5 workflow.
-
-## Next Priority
-
-Phase 7 — Automatic Scheduler is recommended next (generates
-`StabilitySchedule` entries from `samples.intervals`, daily cron for
-due/overdue computation, notifications) since it delivers the system's
-core value; Phase 5 (QA/QC workflow) can follow with approval states
-layered onto samples and schedules.
+- **Storage / Chamber Conditions UI Disabling (2026-08-20)**: Safely hidden/commented out from active UI pages (Products, Records, Sample Detail, Dashboard) and Excel exports while preserving underlying DB columns.
+- **Batch Code Excel Integration (2026-08-20)**: Explicitly exposed as a primary field/column across Excel XML and CSV exports/imports.
+- **Dashboard Calendar Current Date Highlighting (2026-08-20)**: Dynamically highlights the current date based on system date/time.
