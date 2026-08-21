@@ -541,6 +541,7 @@ export function SamplesPage() {
                     type="number"
                     min={0}
                     className={inputClass}
+                    placeholder="e.g. 500"
                     {...register('quantity')}
                   />
                   {errors.quantity && (
@@ -558,7 +559,7 @@ export function SamplesPage() {
                     id="s-remarks"
                     className={inputClass}
                     {...register('remarks')}
-                    placeholder="Add study parameters, remarks..."
+                    placeholder="e.g. Initial registration for 36-month stability study..."
                   />
                 </div>
 

@@ -149,13 +149,13 @@ export function ProductsPage() {
         >
           {(
             [
-              ['name', 'Product Name'],
-              ['code', 'Product Code'],
-              ['dosageForm', 'Dosage Form'],
-              ['strength', 'Strength'],
+              ['name', 'Product Name', 'e.g. Paracetamol 500mg'],
+              ['code', 'Product Code', 'e.g. PARA-500'],
+              ['dosageForm', 'Dosage Form', 'e.g. Tablet / Capsule'],
+              ['strength', 'Strength', 'e.g. 500mg'],
               /* ['storageConditions', 'Storage Conditions'], -- Disabled per Storage/Chamber Conditions UI requirement */
             ] as const
-          ).map(([field, label]) => (
+          ).map(([field, label, placeholder]) => (
             <div key={field}>
               <label htmlFor={`p-${field}`} className="form-label">
                 {label}
@@ -163,6 +163,7 @@ export function ProductsPage() {
               <input
                 id={`p-${field}`}
                 className={inputClass}
+                placeholder={placeholder}
                 style={field === 'code' ? { textTransform: 'uppercase' } : undefined}
                 {...register(
                   field,

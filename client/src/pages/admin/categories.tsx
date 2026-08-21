@@ -98,7 +98,7 @@ export function CategoriesPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={inputClass}
-            placeholder="e.g. Solid, Liquid..."
+            placeholder="e.g. Tablet / Liquid / Ointment"
           />
         </div>
         <div className="min-w-64 flex-1">
@@ -110,7 +110,7 @@ export function CategoriesPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className={inputClass}
-            placeholder="Category details..."
+            placeholder="e.g. Oral solid dosage forms under stability protocols"
           />
         </div>
         <button

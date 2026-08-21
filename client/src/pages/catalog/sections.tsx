@@ -85,7 +85,7 @@ export function SectionsPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={inputClass}
-            placeholder="e.g. Physical Lab..."
+            placeholder="e.g. Oral Solids Lab / Analytical QC"
           />
         </div>
         <div className="min-w-64 flex-1">
@@ -97,7 +97,7 @@ export function SectionsPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className={inputClass}
-            placeholder="Section activities..."
+            placeholder="e.g. Physical testing & stability chamber monitoring"
           />
         </div>
         <button

@@ -195,7 +195,13 @@ export function UsersPage() {
             <label htmlFor="new-email" className="form-label">
               Email Address
             </label>
-            <input id="new-email" type="email" className={inputClass} {...register('email')} />
+            <input
+              id="new-email"
+              type="email"
+              className={inputClass}
+              placeholder="e.g. john.doe@company.com"
+              {...register('email')}
+            />
             {errors.email && (
               <p className="mt-1 text-[11px] text-red-600 font-semibold">{errors.email.message}</p>
             )}
@@ -220,7 +226,12 @@ export function UsersPage() {
             <label htmlFor="new-first" className="form-label">
               First name
             </label>
-            <input id="new-first" className={inputClass} {...register('firstName')} />
+            <input
+              id="new-first"
+              className={inputClass}
+              placeholder="e.g. John"
+              {...register('firstName')}
+            />
             {errors.firstName && (
               <p className="mt-1 text-[11px] text-red-600 font-semibold">
                 {errors.firstName.message}
@@ -231,7 +242,12 @@ export function UsersPage() {
             <label htmlFor="new-last" className="form-label">
               Last name
             </label>
-            <input id="new-last" className={inputClass} {...register('lastName')} />
+            <input
+              id="new-last"
+              className={inputClass}
+              placeholder="e.g. Doe"
+              {...register('lastName')}
+            />
             {errors.lastName && (
               <p className="mt-1 text-[11px] text-red-600 font-semibold">
                 {errors.lastName.message}
