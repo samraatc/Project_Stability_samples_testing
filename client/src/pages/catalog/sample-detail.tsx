@@ -96,6 +96,7 @@ export function SampleDetailPage() {
       'Category',
       'Name of the Product',
       'Batch Code',
+      'Batch No',
       'Quantity',
       'Mfg Date',
       'Exp Date',
@@ -180,7 +181,8 @@ export function SampleDetailPage() {
     const row = [
       escapeCSVCell(product?.category || ''),
       escapeCSVCell(product?.name || ''),
-      escapeCSVCell(batch?.batchCode || (batch as any)?.batchNo || ''),
+      escapeCSVCell(batch?.batchCode || ''),
+      escapeCSVCell((batch as any)?.batchNo || batch?.batchCode || ''),
       escapeCSVCell(sample.quantity),
       escapeCSVCell(formatMMM_YYYY(sample.manufacturingDate)),
       escapeCSVCell(formatMMM_YYYY(sample.expiryDate)),
